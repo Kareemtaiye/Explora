@@ -54,17 +54,11 @@ const tourSchema = new mongoose.Schema({
     require: [true, "Missing tour description"],
   },
 
-  ratings: [
-    {
-      // user: {
-      //   type: mongoose.Schema.Types.ObjectId,
-      //   ref: "User",
-      // },
-      type: Number,
-      min: [0, "Ratings must not be less than zero"],
-      max: [5, "The maximum ratings must not be more than be zero"],
-    },
-  ],
+  ratings: {
+    type: Number,
+    min: [0, "Ratings must not be less than zero"],
+    max: [5, "The maximum ratings must not be more than be zero"],
+  },
 
   totalRatingsSum: { type: Number, default: 0 },
 
@@ -135,6 +129,8 @@ const tourSchema = new mongoose.Schema({
   slug: String,
 });
 
+tourSchema.index({ price: 1 });
+
 // tourSchema.methods.calcRatingsData = function (userId, ratingsl) {
 
 // };
@@ -145,14 +141,17 @@ tourSchema.pre("save", function (next) {
 });
 
 tourSchema.pre("insertMany", async function (next, docs) {
-  docs.forEach((doc) => {
+  docs.forEach(doc => {
     doc.slug = slugify(doc.name, { lower: true });
   });
   next();
 });
 
 tourSchema.pre(/^find/g, function (next) {
-  this.find({ vipTour: { $ne: true } }).populate("guides");
+  this.find({ vipTour: { $ne: true } }).populate({
+    path: "guides",
+    select: "name photo",
+  });
   next();
 });
 

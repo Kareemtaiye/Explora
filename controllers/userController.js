@@ -1,10 +1,17 @@
 const User = require("../models/User");
 const catchAsyncError = require("../utilities/catchAsyncError");
 const AppError = require("../utilities/AppError");
+const ApiFeatures = require("./../utilities/ApiFeatures");
 const sendResponse = require("../utilities/sendResponse");
 
 exports.getAllUsers = catchAsyncError(async function (req, res, next) {
-  const users = await User.find();
+  const userApiFeatures = new ApiFeatures(User.find(), req.query)
+    .filter()
+    .paginate()
+    .sort()
+    .limitFields();
+
+  const users = await userApiFeatures.query;
 
   res.status(200).json({
     status: "sucess",
@@ -74,6 +81,7 @@ exports.updateUser = catchAsyncError(async function (req, res, next) {
 
   res.status(204).json({
     status: "success",
+    data: null,
   });
 });
 
