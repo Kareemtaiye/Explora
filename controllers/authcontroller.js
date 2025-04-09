@@ -8,7 +8,7 @@ const sendEmail = require("../utilities/email");
 
 const { JWT_SECRET_KEY, JWT_EXPIRE_TIME } = process.env;
 
-const signToken = (payload) => {
+const signToken = payload => {
   return jwt.sign({ id: payload }, JWT_SECRET_KEY, {
     expiresIn: JWT_EXPIRE_TIME,
   });
@@ -112,7 +112,7 @@ exports.protect = catchAsyncError(async function (req, res, next) {
   }
 
   //Add the user to the request object
-  console.log(user);
+  // console.log(user);
   req.user = user;
   next();
 });

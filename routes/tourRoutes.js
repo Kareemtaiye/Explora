@@ -16,6 +16,9 @@ router
     tourController.getTourStats
   );
 router.route("/tour-stats/:year").get(tourController.getToursInYear);
+router
+  .route("/tours-within/:distance/center/:latlng/unit/:unit")
+  .get(tourController.getToursWithin);
 
 router
   .route("/")

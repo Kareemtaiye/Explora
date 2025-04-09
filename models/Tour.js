@@ -60,8 +60,6 @@ const tourSchema = new mongoose.Schema({
     max: [5, "The maximum ratings must not be more than be zero"],
   },
 
-  totalRatingsSum: { type: Number, default: 0 },
-
   ratingsQuantity: { type: Number, default: 0 },
 
   ratingsAverage: { type: Number, default: 4.0 },
@@ -125,11 +123,16 @@ const tourSchema = new mongoose.Schema({
   },
 
   images: [String],
-
   slug: String,
 });
 
-tourSchema.index({ price: 1 });
+tourSchema.index({ price: 1, ratingsAverage: -1 });
+tourSchema.index({ slug: 1 });
+tourSchema.index({ startLocation: "2dsphere" });
+
+// tourSchema.virtual("totalRatingsSum").get(function () {
+//   return this.ratingsAverage * this.ratingsQuantity;
+// });
 
 // tourSchema.methods.calcRatingsData = function (userId, ratingsl) {
 
@@ -147,10 +150,10 @@ tourSchema.pre("insertMany", async function (next, docs) {
   next();
 });
 
-tourSchema.pre(/^find/g, function (next) {
+tourSchema.pre(/^findOne/g, function (next) {
   this.find({ vipTour: { $ne: true } }).populate({
     path: "guides",
-    select: "name photo",
+    select: "name photo email",
   });
   next();
 });

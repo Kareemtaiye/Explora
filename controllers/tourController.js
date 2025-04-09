@@ -23,7 +23,7 @@ exports.getAllTours = catchAsyncError(async function (req, res, next) {
     status: "success",
     result: tours.length,
     data: {
-      tours,
+      data: tours,
     },
   });
 });
@@ -34,7 +34,7 @@ exports.createTour = catchAsyncError(async function (req, res, next) {
   res.status(201).json({
     status: "success",
     data: {
-      tour,
+      data: tour,
     },
   });
 });
@@ -55,7 +55,7 @@ exports.getTour = catchAsyncError(async function (req, res, next) {
   res.status(200).json({
     status: "success",
     data: {
-      tour,
+      data: tour,
     },
   });
 });
@@ -73,7 +73,7 @@ exports.updateTour = catchAsyncError(async function (req, res, next) {
   res.status(201).json({
     status: "success",
     data: {
-      tour,
+      data: tour,
     },
   });
 });
@@ -140,8 +140,9 @@ exports.getToursInYear = catchAsyncError(async function (req, res) {
 
   res.status(200).json({
     status: "success",
+    result: stats.length,
     data: {
-      tours: stats,
+      data: stats,
     },
   });
 });
@@ -171,8 +172,42 @@ exports.getTourStats = catchAsyncError(async function (req, res) {
 
   res.status(200).json({
     status: "success",
+    result: stats.length,
     data: {
-      tours: stats,
+      data: stats,
+    },
+  });
+});
+
+// "/tours-within/:distance/center/:latlng/unit/:unit"
+
+exports.getToursWithin = catchAsyncError(async function (req, res, next) {
+  const { distance, latlng, unit } = req.params;
+
+  const [lat, lng] = latlng.split(",");
+
+  const radius = unit === "mi" ? distance / 3963.1 : distance / 6378;
+
+  if (!lat || !lng) {
+    return next(
+      new AppError(
+        "Please provide your latitude and longitude in the format 'lat,lng'",
+        400
+      )
+    );
+  }
+
+  console.log(distance, unit, latlng);
+
+  const tours = await Tour.find({
+    startLocation: { $geoWithin: { $centerSphere: [[lng, lat], radius] } },
+  });
+
+  res.status(200).json({
+    status: "success",
+    result: tours.length,
+    data: {
+      data: tours,
     },
   });
 });

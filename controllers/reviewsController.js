@@ -12,7 +12,7 @@ exports.getAllReviews = catchAsyncError(async function (req, res, next) {
     status: "success",
     result: reviews.length,
     data: {
-      reviews,
+      data: reviews,
     },
   });
 });
@@ -41,15 +41,29 @@ exports.getReview = catchAsyncError(async function (req, res, next) {
 });
 
 exports.createReview = catchAsyncError(async function (req, res, next) {
-  if (!req.body.tourId) req.body.tourId = req.params.tourId;
+  if (!req.body.tourId) req.body.tour = req.params.tourId;
   if (!req.body.user) req.body.user = req.user.id;
+
+  if (!req.body.tour || !req.body.user) {
+    return next(new AppError("Missing Tour or User Id"));
+  }
+
+  const hasReviewed = await Review.findOne({
+    tour: req.body.tour,
+    user: req.body.user,
+  });
+
+  console.log(hasReviewed);
+  if (hasReviewed) {
+    return next(new AppError("User already reviewed on this tour", 400));
+  }
 
   const review = await Review.create(req.body);
 
   res.status(201).json({
     status: "success",
     data: {
-      review,
+      data: review,
     },
   });
 });
@@ -57,10 +71,39 @@ exports.createReview = catchAsyncError(async function (req, res, next) {
 exports.deleteReview = catchAsyncError(async function (req, res, next) {
   const { id, tourId } = req.params;
 
+  if (!id || tourId) {
+    return next(new AppError("Missing Tour or Review Id"));
+  }
+
   const review = await Review.findOneAndDelete({ _id: id, tour: tourId });
+
+  if (!review) {
+    return next(new AppError("Review with that Id cannot be found!", 400));
+  }
 
   res.status(204).json({
     status: "success",
     data: null,
+  });
+});
+
+exports.UpdateReview = catchAsyncError(async function (req, res, next) {
+  const { id, tourId } = req.params;
+  const { rating, review } = req.body;
+  if (!id || !tourId) {
+    return next(new AppError("Missing Tour or Review Id"));
+  }
+
+  const updatedReview = await Review.findOneAndUpdate(
+    { _id: id, tour: tourId },
+    { rating, review },
+    { new: true }
+  );
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      data: updatedReview,
+    },
   });
 });
