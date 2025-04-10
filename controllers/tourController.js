@@ -211,3 +211,48 @@ exports.getToursWithin = catchAsyncError(async function (req, res, next) {
     },
   });
 });
+
+exports.getToursDistance = catchAsyncError(async function (req, res, next) {
+  const { latlng, unit } = req.params;
+
+  const [lat, lng] = latlng.split(",");
+
+  if (!lat || !lng) {
+    return next(
+      new AppError(
+        "Please provide your latitude and longitude in the format 'lat,lng'",
+        400
+      )
+    );
+  }
+
+  const multuplier = unit === "mi" ? 0.000621371 : 0.001;
+
+  const distances = await Tour.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [lng * 1, lat * 1],
+        },
+        distanceField: "distance",
+        distanceMultiplier: multuplier,
+      },
+    },
+
+    {
+      $project: {
+        distance: 1,
+        name: 1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    result: distances.length,
+    data: {
+      data: distances,
+    },
+  });
+});

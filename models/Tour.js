@@ -162,6 +162,14 @@ tourSchema.pre("aggregate", function (next) {
   this.pipeline().unshift({
     $match: { vipTour: { $ne: true } },
   });
+
+  this.pipeline().forEach((pipeline, ind) => {
+    if (Object.keys(pipeline)[0].includes("geoNear")) {
+      this.pipeline().splice(ind, 1);
+      this.pipeline().unshift(pipeline);
+    }
+    // console.log(this.pipeline());⁄
+  });
   next();
 });
 

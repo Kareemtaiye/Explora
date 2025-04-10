@@ -6,12 +6,26 @@ const catchAsyncError = require("../utilities/catchAsyncError");
 const AppError = require("../utilities/AppError");
 const sendEmail = require("../utilities/email");
 
-const { JWT_SECRET_KEY, JWT_EXPIRE_TIME } = process.env;
+const { NODE_ENV, JWT_SECRET_KEY, JWT_EXPIRE_TIME, JWT_COOKIE_EXPIRES_TIME } =
+  process.env;
 
 const signToken = payload => {
   return jwt.sign({ id: payload }, JWT_SECRET_KEY, {
     expiresIn: JWT_EXPIRE_TIME,
   });
+};
+
+const sendCookie = (res, payload) => {
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + JWT_COOKIE_EXPIRES_TIME * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+  };
+
+  if (NODE_ENV === "production") cookieOptions.secure = true;
+
+  res.cookie("jwt", payload, cookieOptions);
 };
 
 // const sendResponse = (statusCode, prop, token = undefined) => {};
@@ -29,14 +43,15 @@ exports.signUp = catchAsyncError(async function (req, res, next) {
   });
 
   const token = signToken(user._id);
+  sendCookie(res, token);
 
-  const { password, role, active, __v, ...filteredUser } = user.toObject();
+  const { password, active, __v, ...filteredUser } = user.toObject();
   // delete userObj.password
 
   res.status(201).json({
     status: "success",
     data: {
-      user: filteredUser,
+      data: filteredUser,
     },
     token,
   });
