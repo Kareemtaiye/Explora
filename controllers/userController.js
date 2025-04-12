@@ -2,7 +2,11 @@ const User = require("../models/User");
 const catchAsyncError = require("../utilities/catchAsyncError");
 const AppError = require("../utilities/AppError");
 const ApiFeatures = require("./../utilities/ApiFeatures");
-const sendResponse = require("../utilities/sendResponse");
+const upload = require("../config/multerUpload");
+
+// const sendResponse = require("../utilities/sendResponse");
+
+exports.uploadUserPhoto = upload.single("photo");
 
 exports.getAllUsers = catchAsyncError(async function (req, res, next) {
   const userApiFeatures = new ApiFeatures(User.find(), req.query)
@@ -120,9 +124,7 @@ exports.updateMe = catchAsyncError(async function (req, res, next) {
     return filteredObj;
   };
 
-  console.log();
-
-  const allowedFields = filterBody(req.body, ["name", "email", "role"]);
+  const allowedFields = filterBody(req.body, ["name", "email", "photo"]);
 
   const user = await User.findByIdAndUpdate(req.user._id, allowedFields, {
     new: true,

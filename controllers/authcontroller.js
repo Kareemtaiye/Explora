@@ -1,16 +1,23 @@
 const { promisify } = require("util");
+const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const catchAsyncError = require("../utilities/catchAsyncError");
 const AppError = require("../utilities/AppError");
 const sendEmail = require("../utilities/email");
+const redisClient = require("../config/redisClient");
 
-const { NODE_ENV, JWT_SECRET_KEY, JWT_EXPIRE_TIME, JWT_COOKIE_EXPIRES_TIME } =
-  process.env;
+const {
+  NODE_ENV,
+  JWT_SECRET_KEY,
+  JWT_EXPIRE_TIME,
+  JWT_COOKIE_EXPIRES_TIME,
+  REDIS_EXPIRES_TIME,
+} = process.env;
 
 const signToken = payload => {
-  return jwt.sign({ id: payload }, JWT_SECRET_KEY, {
+  return jwt.sign(payload, JWT_SECRET_KEY, {
     expiresIn: JWT_EXPIRE_TIME,
   });
 };
@@ -42,7 +49,13 @@ exports.signUp = catchAsyncError(async function (req, res, next) {
     role: req.body.role,
   });
 
-  const token = signToken(user._id);
+  const tokenPayload = {
+    _id: user._id,
+    name: user.name,
+    jti: uuidv4(),
+  };
+
+  const token = signToken(tokenPayload);
   sendCookie(res, token);
 
   const { password, active, __v, ...filteredUser } = user.toObject();
@@ -75,7 +88,13 @@ exports.logIn = catchAsyncError(async function (req, res, next) {
     return next(new AppError("Incorrect email or password", 401));
   }
 
-  const token = signToken(user._id);
+  const tokenPayload = {
+    _id: user._id,
+    name: user.name,
+    jti: uuidv4(),
+  };
+
+  const token = signToken(tokenPayload);
 
   user.passwordChangedDate = undefined;
   await user.save({ validateBeforeSave: false });
@@ -103,10 +122,10 @@ exports.protect = catchAsyncError(async function (req, res, next) {
   }
 
   // Verify Json Web Token
-  const decodedToken = await promisify(jwt.verify)(token, JWT_SECRET_KEY);
+  const { _id, jti, iat } = await promisify(jwt.verify)(token, JWT_SECRET_KEY);
 
   //Check if user still exist.
-  const user = await User.findById(decodedToken.id).select("+role");
+  const user = await User.findById(_id).select("+role");
 
   if (!user) {
     return next(
@@ -118,12 +137,17 @@ exports.protect = catchAsyncError(async function (req, res, next) {
   }
 
   //Check if user has chamged password after token was issued
-  const passwordChange = user?.checkForPasswordChange(decodedToken.iat);
+  const passwordChange = user?.checkForPasswordChange(iat);
 
   if (passwordChange) {
     return next(
       new AppError("User recently changed password, please log in again!")
     );
+  }
+
+  const isBlacklisted = await redisClient.get(jti);
+  if (isBlacklisted) {
+    return next(new AppError("Token is blacklisted", 400));
   }
 
   //Add the user to the request object
@@ -224,5 +248,48 @@ exports.resetPassword = catchAsyncError(async function (req, res, next) {
   res.status(200).json({
     status: "success",
     meessage: "Password reset successfull",
+  });
+});
+
+exports.logout = catchAsyncError(async function (req, res, next) {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return next(
+      new AppError("You are not logged in. Please log in to get access", 401)
+    );
+  }
+
+  // Verify Json Web Token
+  const { jti } = await promisify(jwt.verify)(token, JWT_SECRET_KEY);
+  console.log(jti);
+
+  await redisClient.set(jti, "blacklisted", "EX", REDIS_EXPIRES_TIME);
+
+  res.cookie("jwt", "loggedOut", {
+    expires: new Date(Date.now() + JWT_COOKIE_EXPIRES_TIME * 10 * 1000),
+    httpOnly: true,
+  });
+
+  const key = await redisClient.get(jti);
+  console.log(key);
+
+  redisClient.keys("*", (err, keys) => {
+    if (err) {
+      console.log("Error", err);
+    } else {
+      console.log("Keys", keys);
+    }
+  });
+  res.status(200).json({
+    status: "success",
+    message: "Logged Out",
   });
 });

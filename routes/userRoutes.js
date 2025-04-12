@@ -1,4 +1,5 @@
 const express = require("express");
+
 const userController = require("../controllers/userController");
 const authController = require("../controllers/authcontroller");
 
@@ -12,8 +13,13 @@ router.post("/reset-password/:token", authController.resetPassword);
 router.use(authController.protect); //Protects the routes after this line.
 
 router.get("/me", userController.getMe);
-router.patch("/update-me/", userController.updateMe);
+router.patch(
+  "/update-me/",
+  userController.uploadUserPhoto,
+  userController.updateMe
+);
 router.delete("/delete-me", userController.deleteMe);
+router.route("/logout").post(authController.logout);
 
 router
   .route("/")
