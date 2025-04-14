@@ -1,3 +1,5 @@
+const sharp = require("sharp");
+const upload = require("../config/multerUpload");
 const Tour = require("../models/Tour");
 const ApiFeatures = require("../utilities/ApiFeatures");
 const AppError = require("../utilities/AppError");
@@ -9,6 +11,45 @@ exports.getCheapBestTour = function (req, res, next) {
   req.query.fields = "name,difficulty,price,ratingsAverage,ratingsQuantity";
   next();
 };
+
+exports.uploadTourImages = upload.fields([
+  {
+    name: "imageCover",
+    maxCount: 1,
+  },
+  {
+    name: "images",
+    maxCount: 3,
+  },
+]);
+
+exports.resizeTourImages = catchAsyncError(async function (req, res, next) {
+  req.body.imageCover = `tour-${req.params.id}-${Date.now()}-cover.jpeg`;
+
+  await sharp(req.files.imageCover[0].buffer)
+    .resize(2000, 1333)
+    .toFormat("jpeg")
+    .jpeg({ quality: 90 })
+    .toFile(`public/img/tours/${req.body.imageCover}`);
+
+  req.body.images = [];
+
+  await Promise.all(
+    req.files.images.map(async (file, i) => {
+      await sharp(file.buffer)
+        .resize(2000, 1333)
+        .toFormat("jpeg")
+        .jpeg({ quality: 90 })
+        .toFile(
+          `public/img/tours/tour-${req.params.id}-${Date.now()}-${i + 1}.jpeg`
+        );
+
+      req.body.images.push(`tour-${req.params.id}-${Date.now()}-${i + 1}.jpeg`);
+    })
+  );
+
+  next();
+});
 
 exports.getAllTours = catchAsyncError(async function (req, res, next) {
   let tourApiFeatures = new ApiFeatures(Tour.find(), req.query)

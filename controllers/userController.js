@@ -1,3 +1,4 @@
+const sharp = require("sharp");
 const User = require("../models/User");
 const catchAsyncError = require("../utilities/catchAsyncError");
 const AppError = require("../utilities/AppError");
@@ -7,6 +8,34 @@ const upload = require("../config/multerUpload");
 // const sendResponse = require("../utilities/sendResponse");
 
 exports.uploadUserPhoto = upload.single("photo");
+
+exports.resizeUserPhoto = catchAsyncError(async function (req, res, next) {
+  if (!req.file) {
+    return next();
+  }
+
+  req.file.filename = `ùser-${req.user._id}-${Date.now()}.jpeg`;
+  await sharp(req.file.buffer)
+    .resize(500, 500)
+    .toFormat("jpeg")
+    .jpeg({ quality: 90 })
+    .toFile(`public/img/users/${req.file.filename}`);
+
+  next();
+});
+
+const filterBody = function (obj, fieldsArray) {
+  const filteredObj = {};
+
+  for (const prop of Object.keys(obj)) {
+    if (fieldsArray.includes(prop)) {
+      filteredObj[prop] = obj[prop];
+    }
+  }
+  // console.log(filteredObj);
+
+  return filteredObj;
+};
 
 exports.getAllUsers = catchAsyncError(async function (req, res, next) {
   const userApiFeatures = new ApiFeatures(User.find(), req.query)
@@ -101,6 +130,12 @@ exports.getMe = catchAsyncError(async function (req, res, next) {
 });
 
 exports.updateMe = catchAsyncError(async function (req, res, next) {
+  if (!req.file && req.body.photo) {
+    return next(
+      new AppError("Photo upload cannot be a text but file(image)", 400)
+    );
+  }
+
   if (req.body.password || req.body.passwordConfirm) {
     return next(
       new AppError(
@@ -110,22 +145,11 @@ exports.updateMe = catchAsyncError(async function (req, res, next) {
     );
   }
 
-  const filterBody = function (obj, fieldsArray) {
-    const filteredObj = {};
+  const allowedFields = filterBody(req.body, ["name", "email"]);
 
-    for (const prop of Object.keys(obj)) {
-      console.log(prop);
-      if (fieldsArray.includes(prop)) {
-        filteredObj[prop] = obj[prop];
-      }
-    }
-    // console.log(filteredObj);
-
-    return filteredObj;
-  };
-
-  const allowedFields = filterBody(req.body, ["name", "email", "photo"]);
-
+  if (req.file) {
+    allowedFields.photo = req.file.filename;
+  }
   const user = await User.findByIdAndUpdate(req.user._id, allowedFields, {
     new: true,
   });
