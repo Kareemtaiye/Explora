@@ -4,6 +4,7 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const hpp = require("hpp");
 const mongoSanitizer = require("express-mongo-sanitize");
+const cors = require("cors");
 
 const handleUnhandledRoutes = require("./middleware/unhandledRoutes");
 const globalErrorHandler = require("./middleware/globalErrorHandler");
@@ -19,6 +20,9 @@ const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   message: "Too many request, please try again in an hour",
 });
+
+app.use(cors());
+app.options("*", cors());
 
 // Security headers
 app.use(helmet());
